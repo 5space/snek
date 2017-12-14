@@ -27,26 +27,26 @@ const int clk = 2;
 const int maxInUse = 1;    //change this variable to set how many MAX7219's you'll use
 
 int snakeLength;
-int snakeDir = 0;
-int inputDir = -1;
-int foodSize = 1;
+int snakeDir;
+int inputDir;
 int head[2];
 
 float snakeTick = 0;
 const float snakeTickMax = 150;
 const float snakeTickMult = 0.9;
 
-float foodDisplayTick = 0;
-const float foodDisplayTickMax = 50;
+float displayTick = 0;
+const float displayTickMax = 50;
 
 const int controlPinY = A0;
 const int controlPinX = A1;
 const int controlButton = 12;
 
-const int inputThreshold = 128;
+const int inputThreshold = 64;
 
-bool showFood = true;
-bool doesLoop = true;
+bool showFood;
+bool showSnake;
+const bool doesLoop = true;
 bool paused = false;
 
 const int x = 8;
@@ -54,7 +54,7 @@ const int y = 8;
 int board[x][y];
 
 void initialize() {
-  head[0] = 3;
+  head[0] = 0;
   head[1] = 3;
 
   for (int i = 0; i < x; i++)
@@ -63,6 +63,13 @@ void initialize() {
 
   board[head[0]][head[1]] = 1;
   snakeLength = 3;
+  snakeDir = 0;
+  inputDir = 0;
+
+  bool showFood = true;
+  bool showSnake = true;
+
+  spawnFood();
 }
 
 void handleInput() {
@@ -91,31 +98,29 @@ void handleInput() {
 
   //inputDir += 3;  //For rotation (change 3 to any int)
   //inputDir %= 4;
-
-  if (inputDir > -1 && (inputDir - snakeDir) % 2 != 0) {
-    snakeDir = inputDir;
-  }
 }
 
 bool refresh() {
-
   // TODO: Please help
-
+  // Increment snake values
   
-  if (board[head[0]][head[1]] == -1) {
-    snakeLength += foodSize;
-    snakeTick *= snakeTickMult;
-    spawnFood();
-  } else if (board[head[0]][head[1]] > 0) {
-    endGame();
-    return true; // AM I DOING THIS RIGHT
+  for (int m = 0; m < x; m++) {
+    for (int n = 0; n < y; n++) {
+      if (board[m][n] > 0) {
+        board[m][n]++;
+      }
+    }
   }
 
-  board[head[0]][head[1]] = 1;
+  // Update head position
+
+  if (/*inputDir > -1 && */(inputDir - snakeDir) % 2 != 0) {
+    snakeDir = inputDir;
+  }
 
   switch (snakeDir) { //Update head position
     case 0: //X+
-      head[0] += 7;
+      head[0] += 1;
       head[0] %= x;
       break;
     case 1: //Y-
@@ -127,22 +132,32 @@ bool refresh() {
       head[0] %= x;
       break;
     case 3: //Y+
-      head[1] += 7;
+      head[1] += 1;
       head[1] %= y;
       break;
   }
+
   
-  
+
   for (int m = 0; m < x; m++) {
     for (int n = 0; n < y; n++) {
       if (board[m][n] > snakeLength) {
-        board[m][n]++;
         //Setting end of snake to zero
         board[m][n] = 0;
       }
     }
   }
-
+  
+  if (board[head[0]][head[1]] > 0) {
+    return true; // TODO: AM I DOING THIS RIGHT
+  } else if (board[head[0]][head[1]] == -1) {
+    snakeLength++;
+    snakeTick *= snakeTickMult;
+    spawnFood();
+  }
+  
+  board[head[0]][head[1]] = 1;
+  
   return false;
 }
 
@@ -155,8 +170,7 @@ void displayBoard() {
     data = 0;
 
     for (int n = 0; n < y; n++) {
-
-      if (board[m][n] > 0 || (board[m][n] < 0 && showFood)) {
+      if ((board[m][n] > 0 || (board[m][n] < 0 && showFood)) && showSnake) {
         data += 1 << n;
       }
     }
@@ -185,7 +199,15 @@ void spawnFood() {
   }
 }
 
-void endGame() { }
+void endGame() {
+  //showFood = False;
+  for (int i = 0; i < 4; i++) {
+    displayBoard();
+    delay(displayTick);
+    showSnake = !showSnake;
+  }
+  initialize();
+}
 
 // define max7219 registers
 byte reg_decodeMode  = 0x09;
@@ -295,9 +317,9 @@ void loop() {
   delay(1);
   
   snakeTick += 1;
-  foodDisplayTick += 1;
+  displayTick += 1;
 
-  if (snakeTick >= snakeTickMax) {
+  if (snakeTick >= snakeTickMax * pow(snakeTickMult, snakeLength)) {
 
     snakeTick = 0;
 
@@ -305,9 +327,9 @@ void loop() {
       endGame();
   }
 
-  if (foodDisplayTick >= foodDisplayTickMax) {
+  if (displayTick >= displayTickMax) {
 
-    foodDisplayTick = 0;
+    displayTick = 0;
     showFood = !showFood;
   }
 
